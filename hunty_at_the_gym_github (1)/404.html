@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hunty at the Gym</title>
+  <meta name="theme-color" content="#0b0b0e">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <style>
+    :root { --bg:#0b0b0e; --fg:#f5f5f7; --muted:#a1a1aa; --card:#141418; --accent:#e11d48; --good:#10b981; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+    .wrap{max-width:720px;margin:0 auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    h1{font-size:22px;margin:0 0 4px 0}
+    .muted{color:var(--muted);font-size:12px}
+    .row{display:flex;gap:8px;align-items:center}
+    .card{background:var(--card);border-radius:14px;padding:12px;margin:12px 0}
+    .title{font-weight:700;font-size:14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+    select, input[type=number], input[type=text]{width:100%;background:#0f0f13;border:1px solid #262634;color:var(--fg);border-radius:10px;padding:10px;font-size:14px}
+    button{background:#1f1f29;color:var(--fg);border:none;border-radius:10px;padding:10px 12px;font-weight:600}
+    button.primary{background:var(--accent)}
+    .grid{display:grid;gap:8px}
+    .grid-3{grid-template-columns:repeat(3,1fr)}
+    .grid-2{grid-template-columns:repeat(2,1fr)}
+    .badge{font-size:11px;color:#fff;background:#2a2a36;border-radius:999px;padding:2px 8px}
+    .good{color:var(--good)}
+    .tabbar{display:grid;grid-template-columns:1fr 1fr;border:1px solid #262634;border-radius:12px;overflow:hidden}
+    .tabbar button{background:transparent;padding:10px}
+    .tabbar button.active{background:#222232}
+    .small{font-size:12px}
+    .right{margin-left:auto}
+    .check{appearance:none;width:18px;height:18px;border-radius:6px;border:1px solid #3a3a4a;display:inline-grid;place-items:center}
+    .check:checked{background:var(--good)}
+    .chip{font-size:12px;padding:4px 8px;border-radius:999px;background:#222232}
+    .history-item{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #222}
+    .footer{font-size:12px;color:var(--muted);text-align:center;padding:12px 0 32px}
+    .timer{font-variant-numeric:tabular-nums;font-size:28px;font-weight:800}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Hunty at the Gym</h1>
+      <div class="muted">You better work. Walk that duck. Track, time, progress.</div>
+    </div>
+    <div><span id="darkBadge" class="badge">Dark</span></div>
+  </header>
+
+  <div class="card">
+    <div class="title">Choose Series <span class="right"><button id="saveBtn">Save Session</button></span></div>
+    <div class="row">
+      <select id="seriesSel">
+        <option value="A">Series A</option>
+        <option value="B">Series B</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="tabbar" style="margin:12px 0;">
+    <button id="tabToday" class="active">Today</button>
+    <button id="tabHistory">History</button>
+  </div>
+
+  <div id="todayView"></div>
+  <div id="historyView" style="display:none"></div>
+
+  <div class="footer">Shantay, you stay. Consistency wins.</div>
+</div>
+
+<script>
+// ----- Data -----
+const PLAN = {
+  A: {
+    title: "SERIES A – CHEST / SHOULDER / TRICEP",
+    blocks: [
+      { name: "Chest", exercises: [
+        { key:"bench_incline", label:"Incline Bench Press", target:"Barbell 25 kg each side or DB 22 kg", sets:3, reps:8, type:"weight" },
+        { key:"bench_flat", label:"Flat Bench Press", target:"Barbell 25 kg each side or Cable Press 15 kg", sets:3, reps:8, type:"weight" },
+        { key:"cable_cross_low", label:"Cable Cross (Low to High)", target:"8 plates or ~10 kg", sets:3, reps:12, type:"weight" },
+      ]},
+      { name: "Shoulder", exercises: [
+        { key:"shoulder_incline_db", label:"Incline DB Shoulder Press", target:"12 kg DB", sets:3, reps:10, type:"weight" },
+        { key:"front_raise_cable", label:"Cable Front Raise (2‑arm)", target:"5 plates", sets:3, reps:12, type:"weight" },
+      ]},
+      { name: "Triceps", exercises: [
+        { key:"triceps_pushdown", label:"Cable Pushdown", target:"17.5 plates", sets:3, reps:12, type:"weight" },
+        { key:"triceps_overhead", label:"Cable Overhead Extension", target:"17.5 plates", sets:3, reps:12, type:"weight" },
+      ]},
+    ]
+  },
+  B: {
+    title: "SERIES B – BACK / BICEP / LEG / ABS",
+    blocks: [
+      { name: "Legs", exercises: [
+        { key:"squat", label:"Squats", target:"Machine 15 kg or DB 22 kg", sets:3, reps:10, type:"weight" },
+        { key:"farmer_walk", label:"Farmer Walk", target:"7.5 kg DB", sets:4, reps:30, type:"time" },
+      ]},
+      { name: "Abs", exercises: [
+        { key:"cable_crunch", label:"Cable Crunch", target:"72.5 plates", sets:3, reps:12, type:"weight" },
+      ]},
+      { name: "Back", exercises: [
+        { key:"lat_pulldown", label:"Lat Pulldown / Pull Cable", target:"22.5 kg plate", sets:3, reps:10, type:"weight" },
+        { key:"crossover_back", label:"Cable Crossover X (na polia)", target:"5 plates", sets:3, reps:12, type:"weight" },
+      ]},
+      { name: "Biceps", exercises: [
+        { key:"cable_curl_bent", label:"Cable Curl (Agachado)", target:"25 kg plate", sets:3, reps:10, type:"weight" },
+        { key:"incline_db_curl_rotate", label:"Incline DB Curl (Wrist Rotation)", target:"14 kg DB", sets:3, reps:10, type:"weight" },
+      ]},
+    ]
+  }
+};
+
+const KEY = "hunty_gym_pwa_v1";
+let STATE = JSON.parse(localStorage.getItem(KEY) || "{}");
+if(!STATE.units) STATE = { lastPlan:"A", history:{}, units:"kg", ...STATE };
+saveState();
+
+function saveState(){ localStorage.setItem(KEY, JSON.stringify(STATE)); }
+
+// ----- UI Helpers -----
+function el(tag, attrs={}, ...children){
+  const node = document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k.startsWith("on") && typeof v === "function"){ node.addEventListener(k.substring(2), v); }
+    else if(k === "class") node.className = v;
+    else node.setAttribute(k,v);
+  });
+  children.forEach(c => node.append(c));
+  return node;
+}
+
+function clock(sec){ const m = String(Math.floor(sec/60)).padStart(2,'0'); const s=String(sec%60).padStart(2,'0'); return m+':'+s; }
+
+function beep(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination); o.frequency.value=880; o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+1.0);
+    setTimeout(()=>o.stop(), 950);
+  }catch(e){}
+}
+
+// ----- Timer Component -----
+function RestTimer(defaultSeconds){
+  let seconds = defaultSeconds || 90;
+  let running = false;
+  const timeEl = el('div', {class:'timer'}, clock(seconds));
+  const startBtn = el('button', {}, 'Start');
+  const resetBtn = el('button', {}, 'Reset');
+  let id;
+
+  function tick(){
+    if(!running) return;
+    seconds = Math.max(0, seconds-1);
+    timeEl.textContent = clock(seconds);
+    if(seconds===0){ running=false; clearInterval(id); beep(); }
+  }
+
+  startBtn.addEventListener('click', ()=>{
+    running = !running;
+    startBtn.textContent = running ? 'Pause' : 'Start';
+    clearInterval(id);
+    if(running) id = setInterval(tick, 1000);
+  });
+  resetBtn.addEventListener('click', ()=>{ seconds = defaultSeconds || 90; timeEl.textContent = clock(seconds); });
+
+  return el('div', {class:'card'},
+    el('div', {class:'title'}, 'Rest Timer'),
+    el('div', {class:'row'}, timeEl, startBtn, resetBtn)
+  );
+}
+
+// ----- Exercise Card -----
+function ExerciseCard(ex, dateKey, onUpdate){
+  let data = { key: ex.key, sets: ex.sets, reps: ex.reps, completed:false, rpe:8, actualWeight:'', notes:'' };
+  function update(){ onUpdate(data); }
+
+  const setsInp = el('input', {type:'number', value:String(ex.sets), min:'1', max:'10', oninput:()=>{ data.sets=+setsInp.value; update(); }});
+  const repsLbl = ex.type==='time' ? 'Time (sec)' : 'Reps';
+  const repsInp = el('input', {type:'number', value:String(ex.reps), min:'1', max:'60', oninput:()=>{ data.reps=+repsInp.value; update(); }});
+  const loadInp = el('input', {type:'text', placeholder:'e.g., 25 kg/plate', oninput:()=>{ data.actualWeight=loadInp.value; update(); }});
+  const rpeInp = el('input', {type:'range', min:'6', max:'10', step:'0.5', value:'8', oninput:()=>{ data.rpe=+rpeInp.value; rpeVal.textContent=data.rpe; update(); }});
+  const rpeVal = el('span', {}, '8');
+  const doneChk = el('input', {type:'checkbox', class:'check', onchange:()=>{ data.completed=doneChk.checked; update(); }});
+  const notesInp = el('input', {type:'text', placeholder:'Form cues, tempo', oninput:()=>{ data.notes=notesInp.value; update(); }});
+
+  function suggestion(){
+    if(data.completed && data.rpe <= 8) return '+2.5–5% next session';
+    if(data.completed && data.rpe >= 9.5) return 'Hold or -2.5% next';
+    if(!data.completed) return 'Repeat at same load';
+    return 'Keep same';
+  }
+
+  return el('div', {class:'card'},
+    el('div', {class:'title'}, ex.label, el('span', {class:'chip'}, 'Target: ' + ex.target)),
+    el('div', {class:'grid grid-3'},
+      el('div', {}, el('div', {class:'small muted'}, 'Sets'), setsInp),
+      el('div', {}, el('div', {class:'small muted'}, repsLbl), repsInp),
+      el('div', {}, el('div', {class:'small muted'}, 'Actual Load'), loadInp),
+    ),
+    el('div', {class:'row'}, el('div', {class:'small muted'}, 'RPE '), rpeInp, el('div', {class:'small'}, rpeVal)),
+    el('div', {class:'row'}, doneChk, el('div', {class:'small'}, 'Done')),
+    el('div', {}, el('div', {class:'small muted'}, 'Notes'), notesInp),
+    el('div', {class:'small'}, 'Next time: ', el('span', {class:'good'}, suggestion())),
+    RestTimer(ex.type==='time' ? ex.reps : 90)
+  );
+}
+
+// ----- Warm-up Wizard -----
+function WarmupWizard(){
+  const liftInp = el('input', {type:'text', value:'Bench Press', oninput:()=>render()});
+  const topSetInp = el('input', {type:'number', value:'80', oninput:()=>render()});
+  const repsInp = el('input', {type:'number', value:'5', oninput:()=>render()});
+
+  const wrapper = el('div', {class:'card'});
+  function render(){
+    wrapper.innerHTML = '';
+    wrapper.append(
+      el('div', {class:'title'}, 'Warm‑up Wizard'),
+      el('div', {class:'grid grid-3'},
+        el('div', {}, el('div', {class:'small muted'}, 'Lift'), liftInp),
+        el('div', {}, el('div', {class:'small muted'}, 'Top set (kg)'), topSetInp),
+        el('div', {}, el('div', {class:'small muted'}, 'Target reps'), repsInp),
+      ),
+      el('div', {class:'small'}, 'Suggested warm‑up'),
+    );
+    const top = parseFloat(topSetInp.value||'0');
+    const perc = [40,55,70,85];
+    const reps = [8,5,3,1];
+    const grid = el('div', {class:'grid grid-2'});
+    perc.forEach((p,i)=>{
+      const w = Math.round((p/100)*top/2.5)*2.5;
+      grid.append(el('div', {class:'card'}, el('div', {class:'small'}, `${reps[i]} reps @ ${w} kg`)));
+    });
+    wrapper.append(grid, el('div', {class:'small muted'}, '40% → 55% → 70% → 85% of top set. Adjust if RPE feels high.'));
+  }
+  render();
+  return wrapper;
+}
+
+// ----- Main -----
+const todayView = document.getElementById('todayView');
+const historyView = document.getElementById('historyView');
+const seriesSel = document.getElementById('seriesSel');
+const saveBtn = document.getElementById('saveBtn');
+
+seriesSel.value = STATE.lastPlan || 'A';
+renderToday();
+
+document.getElementById('tabToday').onclick = ()=>{
+  document.getElementById('tabToday').classList.add('active');
+  document.getElementById('tabHistory').classList.remove('active');
+  todayView.style.display = ''; historyView.style.display='none';
+};
+document.getElementById('tabHistory').onclick = ()=>{
+  document.getElementById('tabHistory').classList.add('active');
+  document.getElementById('tabToday').classList.remove('active');
+  todayView.style.display = 'none'; historyView.style.display='';
+  renderHistory();
+};
+
+seriesSel.onchange = ()=>{
+  STATE.lastPlan = seriesSel.value;
+  saveState();
+  renderToday();
+};
+
+let sessionData = {};
+function renderToday(){
+  todayView.innerHTML = '';
+  const plan = PLAN[seriesSel.value];
+  todayView.append(el('div', {class:'card'}, el('div', {class:'title'}, plan.title)));
+  plan.blocks.forEach(block => {
+    todayView.append(el('div', {class:'title'}, block.name));
+    block.exercises.forEach(ex => {
+      todayView.append(ExerciseCard(ex, new Date().toISOString().slice(0,10), (d)=>{
+        sessionData[ex.key]=d;
+      }));
+    });
+  });
+  todayView.append(WarmupWizard());
+}
+
+function renderHistory(){
+  historyView.innerHTML='';
+  const keys = Object.keys(STATE.history||{}).sort().reverse();
+  if(keys.length===0){ historyView.append(el('div',{class:'muted'},'No sessions saved yet. Start today, hunty.')); return; }
+  keys.forEach(date=>{
+    const entry = STATE.history[date];
+    const box = el('div', {class:'card'});
+    box.append(el('div', {class:'title'}, `${date} – Series ${entry.plan}`));
+    Object.values(entry.sessionData||{}).forEach((d)=>{
+      box.append(el('div', {class:'history-item'},
+        el('div', {}, d.key.replaceAll('_',' ')),
+        el('div', {class:'muted'}, `${d.sets}×${d.reps} @ ${d.actualWeight||'—'} | RPE ${d.rpe} ${d.completed?'✓':''}`)
+      ));
+    });
+    historyView.append(box);
+  });
+}
+
+saveBtn.onclick = ()=>{
+  const dateKey = new Date().toISOString().slice(0,10);
+  STATE.history[dateKey] = { date:dateKey, plan: seriesSel.value, sessionData };
+  saveState();
+  renderHistory();
+  alert('Session saved. Shantay, you stay.');
+};
+
+// PWA
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+</body>
+</html>
